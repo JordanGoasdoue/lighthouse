@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -121,16 +122,16 @@ func LoadTektonResourceAsPipelineRun(resolver *UsesResolver, data []byte) (*tekt
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal PipelineRun YAML %s", message)
 		}
-		re, err := loadTektonRefsFromFilesPattern(prs)
+		// re, err := loadTektonRefsFromFilesPattern(prs)
+		// if err != nil {
+		// 	return prs, err
+		// }
+		// if re != nil {
+		prs, err = loadPipelineRunRefs(resolver, prs, dir, message, nil)
 		if err != nil {
 			return prs, err
 		}
-		if re != nil {
-			prs, err = loadPipelineRunRefs(resolver, prs, dir, message, re)
-			if err != nil {
-				return prs, err
-			}
-		}
+		// }
 		prs, err = inheritTaskSteps(resolver, prs)
 		if err != nil {
 			return prs, errors.Wrap(err, "failed to inherit steps")
@@ -339,25 +340,10 @@ func loadTektonRefsFromFilesPattern(prs *tektonv1beta1.PipelineRun) (*regexp.Reg
 
 func loadPipelineRunRefs(resolver *UsesResolver, prs *tektonv1beta1.PipelineRun, dir, message string, re *regexp.Regexp) (*tektonv1beta1.PipelineRun, error) {
 	// if we reference a local
-	if prs.Spec.PipelineSpec == nil && prs.Spec.PipelineRef != nil && prs.Spec.PipelineRef.Name != "" && re.MatchString(prs.Spec.PipelineRef.Name) {
-		pipelinePath := filepath.Join(dir, prs.Spec.PipelineRef.Name)
-		if !strings.HasSuffix(pipelinePath, ".yaml") {
-			pipelinePath += ".yaml"
-		}
-		data, err := resolver.GetData(pipelinePath, true)
-		if err != nil {
-			return prs, errors.Wrapf(err, "failed to find path %s in PipelineRun", pipelinePath)
-		}
-		if len(data) == 0 {
-			return prs, errors.Errorf("no YAML for path %s in PipelineRun", pipelinePath)
-		}
-		p := &tektonv1beta1.Pipeline{}
-		err = yaml.Unmarshal(data, p)
-		if err != nil {
-			return prs, errors.Wrapf(err, "failed to unmarshal Pipeline YAML file %s %s", pipelinePath, message)
-		}
-		prs.Spec.PipelineSpec = &p.Spec
-		prs.Spec.PipelineRef = nil
+	if prs.Spec.PipelineSpec == nil && prs.Spec.PipelineRef != nil && prs.Spec.PipelineRef.Name != "" {
+		logrus.Info("INSIDE loadPipelineRunRefs")
+		pipeline := tektonv1beta1.Pipeline{ObjectMeta: metav1.ObjectMeta{Name: prs.Spec.PipelineRef.Name, Namespace: prs.Namespace}}
+		prs.Spec.PipelineSpec = &pipeline.Spec
 	}
 
 	if prs.Spec.PipelineSpec != nil {
