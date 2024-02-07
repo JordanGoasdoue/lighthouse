@@ -493,6 +493,8 @@ func (c *Configuration) TriggerFor(org, repo string) *Trigger {
 	for _, tr := range c.Triggers {
 		for _, r := range tr.Repos {
 			if r == org || r == fmt.Sprintf("%s/%s", org, repo) {
+				// auto enable for all SkipDraftPR to true temporarily
+				tr.SkipDraftPR = true
 				return &tr
 			}
 		}
