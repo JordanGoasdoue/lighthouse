@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"reflect"
 	"strings"
+
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/pkg/errors"
@@ -30,11 +31,7 @@ const (
 
 var (
 	// pipelineRunShouldRetryMessages are the error messages that show up in the PipelineRun status for race conditions that should lead to the run being retried
-	pipelineRunShouldRetryMessages = []string{
-		"can't be found:pipeline.tekton.dev",
-		"it contains Tasks that don't exist",
-		"Error retrieving pipeline for pipelinerun",
-	}
+	pipelineRunShouldRetryMessages = []string{}
 )
 
 func rerunPipelineRunsWithRaceConditionFailure(tektonClient tektonclient.Interface, ns string, logger *logrus.Entry) error {
