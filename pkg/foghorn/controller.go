@@ -271,8 +271,10 @@ func (r *LighthouseJobReconciler) reportStatus(activity *lighthousev1alpha1.Acti
 		// TODO: Need something here to prevent infinite attempts to create status from just bombing us. (apb)
 		return
 	}
-
-	if !r.pluginConfig.Config().TriggerFor(owner, repo).SkipReportComment {
+	skipReportComment := r.pluginConfig.Config().TriggerFor(owner, repo).SkipReportComment
+	// force skipReportComment to true
+	skipReportComment = true
+	if !skipReportComment {
 		err = reporter.Report(scmClient, r.jobConfig.Config().Plank.ReportTemplate, j, []job.PipelineKind{job.PresubmitJob})
 		if err != nil {
 			// For now, we're just going to ignore failures here.
