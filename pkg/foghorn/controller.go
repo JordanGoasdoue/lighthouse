@@ -185,6 +185,8 @@ func (r *LighthouseJobReconciler) reportStatus(activity *lighthousev1alpha1.Acti
 	gitURL := activity.GitURL
 	activityStatus := activity.Status
 	skipReportRunningStatus := r.pluginConfig.Config().TriggerFor(owner, repo).SkipReportRunningStatus
+	// force skipReportRunningStatus to true
+	skipReportRunningStatus = true
 	statusInfo := toScmStatusDescriptionRunningStages(activity, util.GitKind(r.jobConfig.Config), skipReportRunningStatus)
 
 	fields := map[string]interface{}{
