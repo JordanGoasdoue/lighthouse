@@ -14,7 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -101,10 +103,30 @@ func (r *LighthouseJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// get job's pipeline runs
 	var pipelineRunList pipelinev1beta1.PipelineRunList
-	if err := r.client.List(ctx, &pipelineRunList, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
+
+	// get job's buildnumber label
+	lighthouseJobLabels := job.GetLabels()
+	lighthouseJobBuildNum, ok := lighthouseJobLabels[util.BuildNumLabel]
+	if !ok {
+		return ctrl.Result{}, nil
+	}
+
+	lighthouseJobReq, err := labels.NewRequirement(util.BuildNumLabel, selection.In, []string{lighthouseJobBuildNum})
+
+	if err != nil {
+		r.logger.Errorf("Failed to add LighthouseJob %s labels requirement for %s=%s: %s", job.Name, util.BuildNumLabel, lighthouseJobBuildNum, err)
+		return ctrl.Result{}, err
+	}
+
+	lighthouseJobSelector := labels.NewSelector()
+	lighthouseJobSelector = lighthouseJobSelector.Add(*lighthouseJobReq)
+
+	if err := r.client.List(ctx, &pipelineRunList, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}, &client.ListOptions{LabelSelector: lighthouseJobSelector}); err != nil {
 		r.logger.Errorf("Failed list pipeline runs: %s", err)
 		return ctrl.Result{}, err
 	}
+
+	r.logger.Infof("[Lighthouse Job %s][Build Number %s] pipelineRunList is %v", job.Name, lighthouseJobBuildNum, pipelineRunList)
 
 	// if pipeline run does not exist, create it
 	if len(pipelineRunList.Items) == 0 {
