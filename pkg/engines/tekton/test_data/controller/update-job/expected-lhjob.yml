@@ -27,14 +27,16 @@ spec:
     pipelineRef:
       apiVersion: tekton.dev/v1
       name: jenkins-x-charts-jx-build-templ-wbbx6-7
-    podTemplate: {}
     resources:
     - name: jenkins-x-charts-jx-build-templ-wbbx6
       resourceRef:
         apiVersion: tekton.dev/v1
         name: jenkins-x-charts-jx-build-templ-wbbx6
-    serviceAccountName: tekton-bot
-    timeout: 240h0m0s
+    taskRunTemplate:
+      podTemplate: {}
+      serviceAccountName: tekton-bot
+    timeouts:
+      pipeline: 240h0m0s
   refs:
     base_link: https://github.com/jenkins-x/lighthouse/commit/e8d56b5ee9671599c75644af574a251dd3b94a5c
     base_ref: master
