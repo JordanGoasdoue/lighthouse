@@ -9,7 +9,6 @@ metadata:
     lighthouse.jenkins-x.io/branch: PR-813
     lighthouse.jenkins-x.io/buildNum: "7828158075477027098"
     lighthouse.jenkins-x.io/context: github
-    lighthouse.jenkins-x.io/id: f46327af-b47e-11ea-b797-9256b7b8d9b0
     lighthouse.jenkins-x.io/job: github
     lighthouse.jenkins-x.io/refs.org: jenkins-x
     lighthouse.jenkins-x.io/refs.pull: "813"
@@ -27,7 +26,7 @@ spec:
     pipelineRef:
       apiVersion: tekton.dev/v1
       name: jenkins-x-charts-jx-build-templ-wbbx6-7
-    resources:
+    computeResources:
     - name: jenkins-x-charts-jx-build-templ-wbbx6
       resourceRef:
         apiVersion: tekton.dev/v1

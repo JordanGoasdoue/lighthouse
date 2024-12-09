@@ -530,8 +530,13 @@ func (v *DefaultValues) Apply(prs *pipelinev1.PipelineRun) {
 	if prs.Spec.TaskRunTemplate.ServiceAccountName == "" && v.ServiceAccountName != "" {
 		prs.Spec.TaskRunTemplate.ServiceAccountName = v.ServiceAccountName
 	}
-	if prs.Spec.Timeouts.Pipeline == nil && v.Timeout != nil {
-		prs.Spec.Timeouts.Pipeline = v.Timeout
+	if prs.Spec.Timeouts == nil {
+		prs.Spec.Timeouts = &pipelinev1.TimeoutFields{}
+	}
+
+	if prs.Spec.Timeouts.Pipeline == nil {
+		// Set a default timeout of 1 day if no timeout is specified
+		prs.Spec.Timeouts.Pipeline = &metav1.Duration{Duration: 24 * time.Hour}
 	}
 }
 

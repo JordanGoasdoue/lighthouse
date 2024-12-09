@@ -52,7 +52,9 @@ spec:
             source .jx/variables.sh
             jx preview create
 
-  podTemplate: {}
-  serviceAccountName: tekton-bot
-  timeout: 240h0m0s
+  taskRunTemplate:
+    podTemplate: {}
+    serviceAccountName: tekton-bot
+  timeouts: 
+    pipeline: 240h0m0s
 status: {}

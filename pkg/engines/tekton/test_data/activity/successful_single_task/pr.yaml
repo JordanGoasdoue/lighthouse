@@ -35,15 +35,16 @@ spec:
   pipelineRef:
     apiVersion: tekton.dev/v1
     name: jenkins-x-lighthouse-pr-854-bbs-d5q9c-4
-  podTemplate:
-    schedulerName: ""
-  resources:
+  taskRunTemplate:
+    podTemplate: {}
+    serviceAccountName: tekton-bot
+  timeouts:
+    pipeline: 240h0m0s
+  computeResources:
   - name: jenkins-x-lighthouse-pr-854-bbs-d5q9c
     resourceRef:
       apiVersion: tekton.dev/v1
       name: jenkins-x-lighthouse-pr-854-bbs-d5q9c
-  serviceAccountName: tekton-bot
-  timeout: 240h0m0s
 status:
   startTime: "2020-07-20T17:29:24Z"
   completionTime: "2020-07-20T18:00:05Z"

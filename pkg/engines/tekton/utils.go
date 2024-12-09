@@ -67,8 +67,13 @@ func makePipelineRun(ctx context.Context, lj v1alpha1.LighthouseJob, namespace s
 		},
 		Spec: *specCopy,
 	}
-	// Set a default timeout of 1 day if no timeout is specified
+
+	if p.Spec.Timeouts == nil {
+		p.Spec.Timeouts = &pipelinev1.TimeoutFields{}
+	}
+
 	if p.Spec.Timeouts.Pipeline == nil {
+		// Set a default timeout of 1 day if no timeout is specified
 		p.Spec.Timeouts.Pipeline = &metav1.Duration{Duration: 24 * time.Hour}
 	}
 

@@ -57,18 +57,20 @@ func NewLighthouseJobReconciler(client client.Client, apiReader client.Reader, s
 	}
 }
 
+var tektonControllerIndexFunc = func(rawObj client.Object) []string {
+	obj := rawObj.(*pipelinev1.PipelineRun)
+	owner := metav1.GetControllerOf(obj)
+	// TODO: would be nice to get kind from the type rather than a hard coded string
+	if owner == nil || owner.APIVersion != apiGVStr || owner.Kind != "LighthouseJob" {
+		return nil
+	}
+	return []string{owner.Name}
+}
+
 // SetupWithManager sets up the reconcilier with it's manager
 func (r *LighthouseJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	indexFunc := func(rawObj client.Object) []string {
-		obj := rawObj.(*pipelinev1.PipelineRun)
-		owner := metav1.GetControllerOf(obj)
-		// TODO: would be nice to get kind from the type rather than a hard coded string
-		if owner == nil || owner.APIVersion != apiGVStr || owner.Kind != "LighthouseJob" {
-			return nil
-		}
-		return []string{owner.Name}
-	}
-	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &pipelinev1.PipelineRun{}, jobOwnerKey, indexFunc); err != nil {
+
+	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &pipelinev1.PipelineRun{}, jobOwnerKey, tektonControllerIndexFunc); err != nil {
 		return err
 	}
 
@@ -183,7 +185,7 @@ func (r *LighthouseJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				job.Status.ReportURL = r.getPipelingetPipelineTargetURLeTargetURL(pipelineRun)
 			}
 
-			activity, err := ConvertPipelineRun(r.tektonclient, &pipelineRun)
+			activity, err := ConvertPipelineRun(r.tektonclient, &pipelineRun, req.Namespace)
 			if err != nil {
 				return errors.Wrapf(err, "failed to convert PipelineRun")
 			}

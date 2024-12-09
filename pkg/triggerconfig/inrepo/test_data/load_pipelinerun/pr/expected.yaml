@@ -35,12 +35,14 @@ spec:
   pipelineRef:
     apiVersion: tekton.dev/v1
     name: jenkins-x-jx-pr-7463-boot-vault-9mbgb-17
-  podTemplate: {}
-  resources:
+  computeResources:
   - name: jenkins-x-jx-pr-7463-boot-vault-9mbgb
     resourceRef:
       apiVersion: tekton.dev/v1
       name: jenkins-x-jx-pr-7463-boot-vault-9mbgb
-  serviceAccountName: tekton-bot
-  timeout: 240h0m0s
+  taskRunTemplate:
+    podTemplate: {}
+    serviceAccountName: tekton-bot
+  timeouts:
+    pipeline: 240h0m0s
 status: {}

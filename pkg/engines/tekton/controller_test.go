@@ -79,7 +79,7 @@ func TestReconcile(t *testing.T) {
 			tektonfakeClient := tektonfake.NewSimpleClientset()
 			if observedTR != nil {
 				state = append(state, observedTR)
-				_, err = tektonfakeClient.TektonV1().TaskRuns("jx").Create(context.Background(), observedTR, metav1.CreateOptions{})
+				_, err = tektonfakeClient.TektonV1().TaskRuns(ns).Create(context.Background(), observedTR, metav1.CreateOptions{})
 				assert.NoError(t, err, "Failed to create TaskRun %s in the fake client", observedTR.Name)
 			}
 
@@ -96,7 +96,8 @@ func TestReconcile(t *testing.T) {
 			err = pipelinev1.AddToScheme(scheme)
 			assert.NoError(t, err)
 
-			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(state...).Build()
+			c := fake.NewClientBuilder().WithStatusSubresource(observedJob).WithScheme(scheme).WithObjects(state...).Build()
+			fake.AddIndex(c, &pipelinev1.PipelineRun{}, jobOwnerKey, tektonControllerIndexFunc)
 			reconciler := NewLighthouseJobReconciler(c, c, scheme, tektonfakeClient, dashboardBaseURL, dashboardTemplate, ns)
 			reconciler.idGenerator = &seededRandIDGenerator{}
 			reconciler.disableLogging = true

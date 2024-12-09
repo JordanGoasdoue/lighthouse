@@ -35,15 +35,16 @@ spec:
   pipelineRef:
     apiVersion: tekton.dev/v1
     name: jenkins-x-charts-jx-build-templ-wbbx6-7
-  podTemplate:
-    schedulerName: ""
-  resources:
+  taskRunTemplate:
+    podTemplate: {}
+    serviceAccountName: tekton-bot
+  timeouts:
+    pipeline: 240h0m0s
+  computeResources:
   - name: jenkins-x-charts-jx-build-templ-wbbx6
     resourceRef:
       apiVersion: tekton.dev/v1
       name: jenkins-x-charts-jx-build-templ-wbbx6
-  serviceAccountName: tekton-bot
-  timeout: 240h0m0s
 status:
   startTime: "2020-07-20T18:50:22Z"
   completionTime: "2020-07-20T18:50:43Z"

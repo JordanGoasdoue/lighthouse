@@ -42,17 +42,18 @@ func TestConvertPipelineRun(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testDir := filepath.Join("test_data", "activity", tc.name)
 			pr := loadPipelineRun(t, testDir)
+			ns := "jx"
 
 			taskRuns := loadTaskRuns(t, testDir)
 			assert.NotEmpty(t, taskRuns, "TaskRuns should not be empty")
 
 			tektonfakeClient := tektonfake.NewSimpleClientset()
 			for _, taskRun := range taskRuns {
-				_, err := tektonfakeClient.TektonV1().TaskRuns("jx").Create(context.Background(), taskRun, metav1.CreateOptions{})
+				_, err := tektonfakeClient.TektonV1().TaskRuns(ns).Create(context.Background(), taskRun, metav1.CreateOptions{})
 				assert.NoError(t, err, "Failed to create TaskRun %s in the fake client", taskRun.Name)
 			}
 
-			converted, err := tekton.ConvertPipelineRun(tektonfakeClient, pr)
+			converted, err := tekton.ConvertPipelineRun(tektonfakeClient, pr, ns)
 			assert.NoError(t, err)
 			expected := loadRecord(t, testDir)
 

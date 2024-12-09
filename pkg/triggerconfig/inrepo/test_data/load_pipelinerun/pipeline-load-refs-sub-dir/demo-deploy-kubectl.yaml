@@ -17,6 +17,7 @@ spec:
   - name: source
   steps:
   - name: replace-image
+    computeResources: {}
     image: mikefarah/yq
     command: ['yq']
     args:
@@ -28,6 +29,7 @@ spec:
     - "$(params.imageURL)"
   - name: run-kubectl
     image: lachlanevenson/k8s-kubectl
+    computeResources: {}
     command: ['kubectl']
     args:
     - 'apply'
