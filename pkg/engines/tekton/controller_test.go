@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/jenkins-x/lighthouse/pkg/apis/lighthouse/v1alpha1"
 	lighthousev1alpha1 "github.com/jenkins-x/lighthouse/pkg/apis/lighthouse/v1alpha1"
 	"github.com/jenkins-x/lighthouse/pkg/util"
 	"github.com/stretchr/testify/assert"
@@ -156,7 +155,7 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
-func loadLighthouseJob(isObserved bool, dir string) (*v1alpha1.LighthouseJob, string, error) {
+func loadLighthouseJob(isObserved bool, dir string) (*lighthousev1alpha1.LighthouseJob, string, error) {
 	var baseFn string
 	if isObserved {
 		baseFn = "observed-lhjob.yml"
@@ -169,7 +168,7 @@ func loadLighthouseJob(isObserved bool, dir string) (*v1alpha1.LighthouseJob, st
 		return nil, fileName, err
 	}
 	if exists {
-		lhjob := &v1alpha1.LighthouseJob{}
+		lhjob := &lighthousev1alpha1.LighthouseJob{}
 		data, err := os.ReadFile(fileName)
 		if err != nil {
 			return nil, fileName, err
