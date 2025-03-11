@@ -6,18 +6,26 @@ import (
 	"strings"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // UseLocation defines the location where we are using one or more steps where we may need to modify
 // the parameters, results and workspaces
 type UseLocation struct {
-	PipelineRunSpec *pipelinev1.PipelineRunSpec
-	PipelineSpec    *pipelinev1.PipelineSpec
-	PipelineTask    *pipelinev1.PipelineTask
+	PipelineRunSpec *pipelinev1beta1.PipelineRunSpec
+	PipelineSpec    *pipelinev1beta1.PipelineSpec
+	PipelineTask    *pipelinev1beta1.PipelineTask
 	TaskName        string
-	TaskRunSpec     *pipelinev1.TaskRunSpec
-	TaskSpec        *pipelinev1.TaskSpec
+	TaskRunSpec     *pipelinev1beta1.TaskRunSpec
+	TaskSpec        *pipelinev1beta1.TaskSpec
+
+	PipelineRunSpecV1 *pipelinev1.PipelineRunSpec
+	PipelineSpecV1    *pipelinev1.PipelineSpec
+	PipelineTaskV1    *pipelinev1.PipelineTask
+	TaskNameV1        string
+	TaskRunSpecV1     *pipelinev1.TaskRunSpec
+	TaskSpecV1        *pipelinev1.TaskSpec
 }
 
 func getParamsFromTasksResults(loc *UseLocation) map[string]bool {
@@ -37,7 +45,7 @@ func getParamsFromTasksResults(loc *UseLocation) map[string]bool {
 }
 
 // UseParametersAndResults adds the parameters from the used Task to the PipelineSpec if specified and the PipelineTask
-func UseParametersAndResults(ctx context.Context, loc *UseLocation, uses *pipelinev1.TaskSpec) {
+func UseParametersAndResults(ctx context.Context, loc *UseLocation, uses *pipelinev1beta1.TaskSpec) {
 	parameterSpecs := uses.Params
 	parameters := ToParams(parameterSpecs)
 	results := uses.Results
@@ -74,7 +82,7 @@ func UseParametersAndResults(ctx context.Context, loc *UseLocation, uses *pipeli
 			stepTemplate := ts.StepTemplate
 			created := false
 			if stepTemplate == nil {
-				stepTemplate = &pipelinev1.StepTemplate{}
+				stepTemplate = &pipelinev1beta1.StepTemplate{}
 				created = true
 			}
 			stepTemplate.Env = useParameterEnvVars(stepTemplate.Env, parameters)
@@ -84,9 +92,74 @@ func UseParametersAndResults(ctx context.Context, loc *UseLocation, uses *pipeli
 		}
 	}
 }
+func UseParametersAndResultsV1(ctx context.Context, loc *UseLocation, uses *pipelinev1.TaskSpec) {
+	parameterSpecs := uses.Params
+	parameters := ToParamsV1(parameterSpecs)
+	results := uses.Results
+	areParamsFromTasksResults := getParamsFromTasksResults(loc)
+
+	prs := loc.PipelineRunSpecV1
+	if prs != nil {
+		prs.Params = useParametersV1(prs.Params, ToDefaultParamsV1(parameterSpecs), areParamsFromTasksResults)
+		prs.Workspaces = useWorkspaceBindingsV1(prs.Workspaces, ToWorkspaceBindingsV1(uses.Workspaces))
+	}
+	ps := loc.PipelineSpecV1
+	if ps != nil {
+		ps.Params = useParameterSpecsV1(ctx, ps.Params, parameterSpecs, areParamsFromTasksResults)
+		ps.Results = usePipelineResultsV1(ps.Results, results, loc.TaskName)
+		ps.Workspaces = usePipelineWorkspacesV1(ps.Workspaces, uses.Workspaces)
+	}
+	pt := loc.PipelineTaskV1
+	if pt != nil {
+		pt.Workspaces = useWorkspaceTaskBindingsV1(pt.Workspaces, ToWorkspacePipelineTaskBindingsFromDeclarationsV1(uses.Workspaces))
+	}
+	trs := loc.TaskRunSpecV1
+	if trs != nil {
+		trs.Params = useParametersV1(trs.Params, parameters, areParamsFromTasksResults)
+	}
+	ts := loc.TaskSpecV1
+	if ts != nil {
+		ts.Params = useParameterSpecsV1(ctx, ts.Params, parameterSpecs, areParamsFromTasksResults)
+		ts.Results = useResultsV1(ts.Results, results)
+		ts.Sidecars = useSidecarsV1(ts.Sidecars, uses.Sidecars)
+		ts.Workspaces = useWorkspacesV1(ts.Workspaces, uses.Workspaces)
+
+		// lets create a step template if its not already defined
+		if len(parameters) > 0 {
+			stepTemplate := ts.StepTemplate
+			created := false
+			if stepTemplate == nil {
+				stepTemplate = &pipelinev1.StepTemplate{}
+				created = true
+			}
+			stepTemplate.Env = useParameterEnvVarsV1(stepTemplate.Env, parameters)
+			if len(stepTemplate.Env) > 0 && created {
+				ts.StepTemplate = stepTemplate
+			}
+		}
+	}
+}
 
 // ToDefaultParams converts the param specs to default params
-func ToDefaultParams(params []pipelinev1.ParamSpec) []pipelinev1.Param {
+func ToDefaultParams(params []pipelinev1beta1.ParamSpec) []pipelinev1beta1.Param {
+	var answer []pipelinev1beta1.Param
+	for _, p := range params {
+		value := pipelinev1beta1.ParamValue{
+			Type: pipelinev1beta1.ParamTypeString,
+		}
+		d := p.Default
+		if d != nil {
+			value.StringVal = d.StringVal
+			value.ArrayVal = d.ArrayVal
+		}
+		answer = append(answer, pipelinev1beta1.Param{
+			Name:  p.Name,
+			Value: value,
+		})
+	}
+	return answer
+}
+func ToDefaultParamsV1(params []pipelinev1.ParamSpec) []pipelinev1.Param {
 	var answer []pipelinev1.Param
 	for _, p := range params {
 		value := pipelinev1.ParamValue{
@@ -105,7 +178,30 @@ func ToDefaultParams(params []pipelinev1.ParamSpec) []pipelinev1.Param {
 	return answer
 }
 
-func useParameterSpecs(ctx context.Context, params []pipelinev1.ParamSpec, uses []pipelinev1.ParamSpec, areParamsFromTasksResults map[string]bool) []pipelinev1.ParamSpec {
+func useParameterSpecs(ctx context.Context, params []pipelinev1beta1.ParamSpec, uses []pipelinev1beta1.ParamSpec, areParamsFromTasksResults map[string]bool) []pipelinev1beta1.ParamSpec {
+	for _, u := range uses {
+		found := false
+		for i := range params {
+			param := &params[i]
+			if param.Name == u.Name {
+				found = true
+				if param.Description == "" {
+					param.Description = u.Description
+				}
+				param.SetDefaults(ctx)
+				break
+			}
+		}
+		if !found {
+			u.SetDefaults(ctx)
+			if areParamsFromTasksResults == nil || !areParamsFromTasksResults[u.Name] {
+				params = append(params, u)
+			}
+		}
+	}
+	return params
+}
+func useParameterSpecsV1(ctx context.Context, params []pipelinev1.ParamSpec, uses []pipelinev1.ParamSpec, areParamsFromTasksResults map[string]bool) []pipelinev1.ParamSpec {
 	for _, u := range uses {
 		found := false
 		for i := range params {
@@ -129,7 +225,37 @@ func useParameterSpecs(ctx context.Context, params []pipelinev1.ParamSpec, uses 
 	return params
 }
 
-func useParameters(params []pipelinev1.Param, uses []pipelinev1.Param, areParamsFromTasksResults map[string]bool) []pipelinev1.Param {
+func useParameters(params []pipelinev1beta1.Param, uses []pipelinev1beta1.Param, areParamsFromTasksResults map[string]bool) []pipelinev1beta1.Param {
+	for _, u := range uses {
+		found := false
+		for i := range params {
+			p := &params[i]
+			if p.Name == u.Name {
+				found = true
+				if p.Value.Type == u.Value.Type {
+					switch p.Value.Type {
+					case pipelinev1beta1.ParamTypeString:
+						if p.Value.StringVal == "" {
+							p.Value.StringVal = u.Value.StringVal
+						}
+					case pipelinev1beta1.ParamTypeArray:
+						if len(p.Value.ArrayVal) == 0 {
+							p.Value.ArrayVal = u.Value.ArrayVal
+						}
+					}
+				}
+				break
+			}
+		}
+		if !found {
+			if areParamsFromTasksResults == nil || !areParamsFromTasksResults[u.Name] {
+				params = append(params, u)
+			}
+		}
+	}
+	return params
+}
+func useParametersV1(params []pipelinev1.Param, uses []pipelinev1.Param, areParamsFromTasksResults map[string]bool) []pipelinev1.Param {
 	for _, u := range uses {
 		found := false
 		for i := range params {
@@ -160,7 +286,36 @@ func useParameters(params []pipelinev1.Param, uses []pipelinev1.Param, areParams
 	return params
 }
 
-func useParameterEnvVars(env []corev1.EnvVar, uses []pipelinev1.Param) []corev1.EnvVar {
+func useParameterEnvVars(env []corev1.EnvVar, uses []pipelinev1beta1.Param) []corev1.EnvVar {
+	for _, u := range uses {
+		name := u.Name
+		upperName := strings.ToUpper(name)
+		if upperName != name {
+			// ignore parameters which are not already suitable environment names being upper case
+			// with optional _ characters
+			continue
+		}
+		found := false
+		for i := range env {
+			p := &env[i]
+			if p.Name == name {
+				found = true
+				if p.Value == "" {
+					p.Value = u.Value.StringVal
+				}
+				break
+			}
+		}
+		if !found {
+			env = append(env, corev1.EnvVar{
+				Name:  name,
+				Value: u.Value.StringVal,
+			})
+		}
+	}
+	return env
+}
+func useParameterEnvVarsV1(env []corev1.EnvVar, uses []pipelinev1.Param) []corev1.EnvVar {
 	for _, u := range uses {
 		name := u.Name
 		upperName := strings.ToUpper(name)
@@ -190,7 +345,30 @@ func useParameterEnvVars(env []corev1.EnvVar, uses []pipelinev1.Param) []corev1.
 	return env
 }
 
-func usePipelineResults(results []pipelinev1.PipelineResult, uses []pipelinev1.TaskResult, taskName string) []pipelinev1.PipelineResult {
+func usePipelineResults(results []pipelinev1beta1.PipelineResult, uses []pipelinev1beta1.TaskResult, taskName string) []pipelinev1beta1.PipelineResult {
+	for _, u := range uses {
+		found := false
+		for i := range results {
+			param := &results[i]
+			if param.Name == u.Name {
+				found = true
+				if param.Description == "" {
+					param.Description = u.Description
+				}
+				break
+			}
+		}
+		if !found {
+			results = append(results, pipelinev1beta1.PipelineResult{
+				Name:        u.Name,
+				Description: u.Description,
+				Value:       *pipelinev1beta1.NewStructuredValues(fmt.Sprintf("$(tasks.%s.results.%s)", taskName, u.Name)),
+			})
+		}
+	}
+	return results
+}
+func usePipelineResultsV1(results []pipelinev1.PipelineResult, uses []pipelinev1.TaskResult, taskName string) []pipelinev1.PipelineResult {
 	for _, u := range uses {
 		found := false
 		for i := range results {
@@ -214,7 +392,26 @@ func usePipelineResults(results []pipelinev1.PipelineResult, uses []pipelinev1.T
 	return results
 }
 
-func useResults(results []pipelinev1.TaskResult, uses []pipelinev1.TaskResult) []pipelinev1.TaskResult {
+func useResults(results []pipelinev1beta1.TaskResult, uses []pipelinev1beta1.TaskResult) []pipelinev1beta1.TaskResult {
+	for _, u := range uses {
+		found := false
+		for i := range results {
+			param := &results[i]
+			if param.Name == u.Name {
+				found = true
+				if param.Description == "" {
+					param.Description = u.Description
+				}
+				break
+			}
+		}
+		if !found {
+			results = append(results, u)
+		}
+	}
+	return results
+}
+func useResultsV1(results []pipelinev1.TaskResult, uses []pipelinev1.TaskResult) []pipelinev1.TaskResult {
 	for _, u := range uses {
 		found := false
 		for i := range results {
@@ -234,7 +431,23 @@ func useResults(results []pipelinev1.TaskResult, uses []pipelinev1.TaskResult) [
 	return results
 }
 
-func useWorkspaceTaskBindings(ws []pipelinev1.WorkspacePipelineTaskBinding, uses []pipelinev1.WorkspacePipelineTaskBinding) []pipelinev1.WorkspacePipelineTaskBinding {
+func useWorkspaceTaskBindings(ws []pipelinev1beta1.WorkspacePipelineTaskBinding, uses []pipelinev1beta1.WorkspacePipelineTaskBinding) []pipelinev1beta1.WorkspacePipelineTaskBinding {
+	for _, u := range uses {
+		found := false
+		for i := range ws {
+			param := &ws[i]
+			if param.Name == u.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ws = append(ws, u)
+		}
+	}
+	return ws
+}
+func useWorkspaceTaskBindingsV1(ws []pipelinev1.WorkspacePipelineTaskBinding, uses []pipelinev1.WorkspacePipelineTaskBinding) []pipelinev1.WorkspacePipelineTaskBinding {
 	for _, u := range uses {
 		found := false
 		for i := range ws {
@@ -251,7 +464,30 @@ func useWorkspaceTaskBindings(ws []pipelinev1.WorkspacePipelineTaskBinding, uses
 	return ws
 }
 
-func usePipelineWorkspaces(ws []pipelinev1.PipelineWorkspaceDeclaration, uses []pipelinev1.WorkspaceDeclaration) []pipelinev1.PipelineWorkspaceDeclaration {
+func usePipelineWorkspaces(ws []pipelinev1beta1.PipelineWorkspaceDeclaration, uses []pipelinev1beta1.WorkspaceDeclaration) []pipelinev1beta1.PipelineWorkspaceDeclaration {
+	for _, u := range uses {
+		found := false
+		for i := range ws {
+			param := &ws[i]
+			if param.Name == u.Name {
+				found = true
+				if param.Description == "" {
+					param.Description = u.Description
+				}
+				break
+			}
+		}
+		if !found {
+			ws = append(ws, pipelinev1beta1.PipelineWorkspaceDeclaration{
+				Name:        u.Name,
+				Description: u.Description,
+				Optional:    u.Optional,
+			})
+		}
+	}
+	return ws
+}
+func usePipelineWorkspacesV1(ws []pipelinev1.PipelineWorkspaceDeclaration, uses []pipelinev1.WorkspaceDeclaration) []pipelinev1.PipelineWorkspaceDeclaration {
 	for _, u := range uses {
 		found := false
 		for i := range ws {
@@ -275,7 +511,23 @@ func usePipelineWorkspaces(ws []pipelinev1.PipelineWorkspaceDeclaration, uses []
 	return ws
 }
 
-func useSidecars(ws []pipelinev1.Sidecar, uses []pipelinev1.Sidecar) []pipelinev1.Sidecar {
+func useSidecars(ws []pipelinev1beta1.Sidecar, uses []pipelinev1beta1.Sidecar) []pipelinev1beta1.Sidecar {
+	for _, u := range uses {
+		found := false
+		for i := range ws {
+			param := &ws[i]
+			if param.Name == u.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ws = append(ws, u)
+		}
+	}
+	return ws
+}
+func useSidecarsV1(ws []pipelinev1.Sidecar, uses []pipelinev1.Sidecar) []pipelinev1.Sidecar {
 	for _, u := range uses {
 		found := false
 		for i := range ws {
@@ -292,7 +544,26 @@ func useSidecars(ws []pipelinev1.Sidecar, uses []pipelinev1.Sidecar) []pipelinev
 	return ws
 }
 
-func useWorkspaces(ws []pipelinev1.WorkspaceDeclaration, uses []pipelinev1.WorkspaceDeclaration) []pipelinev1.WorkspaceDeclaration {
+func useWorkspaces(ws []pipelinev1beta1.WorkspaceDeclaration, uses []pipelinev1beta1.WorkspaceDeclaration) []pipelinev1beta1.WorkspaceDeclaration {
+	for _, u := range uses {
+		found := false
+		for i := range ws {
+			param := &ws[i]
+			if param.Name == u.Name {
+				found = true
+				if param.Description == "" {
+					param.Description = u.Description
+				}
+				break
+			}
+		}
+		if !found {
+			ws = append(ws, u)
+		}
+	}
+	return ws
+}
+func useWorkspacesV1(ws []pipelinev1.WorkspaceDeclaration, uses []pipelinev1.WorkspaceDeclaration) []pipelinev1.WorkspaceDeclaration {
 	for _, u := range uses {
 		found := false
 		for i := range ws {
@@ -312,7 +583,23 @@ func useWorkspaces(ws []pipelinev1.WorkspaceDeclaration, uses []pipelinev1.Works
 	return ws
 }
 
-func useWorkspaceBindings(ws []pipelinev1.WorkspaceBinding, uses []pipelinev1.WorkspaceBinding) []pipelinev1.WorkspaceBinding {
+func useWorkspaceBindings(ws []pipelinev1beta1.WorkspaceBinding, uses []pipelinev1beta1.WorkspaceBinding) []pipelinev1beta1.WorkspaceBinding {
+	for _, u := range uses {
+		found := false
+		for i := range ws {
+			param := &ws[i]
+			if param.Name == u.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ws = append(ws, u)
+		}
+	}
+	return ws
+}
+func useWorkspaceBindingsV1(ws []pipelinev1.WorkspaceBinding, uses []pipelinev1.WorkspaceBinding) []pipelinev1.WorkspaceBinding {
 	for _, u := range uses {
 		found := false
 		for i := range ws {

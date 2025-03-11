@@ -2,14 +2,15 @@ package inrepo
 
 import (
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	v1 "k8s.io/api/core/v1"
 )
 
 // OverrideTaskSpec lets reuse any TaskSpec resources from the used task
-func OverrideTaskSpec(ts *pipelinev1.TaskSpec, override *pipelinev1.TaskSpec) {
+func OverrideTaskSpec(ts *pipelinev1beta1.TaskSpec, override *pipelinev1beta1.TaskSpec) {
 	if override.StepTemplate != nil {
 		if ts.StepTemplate == nil {
-			ts.StepTemplate = &pipelinev1.StepTemplate{}
+			ts.StepTemplate = &pipelinev1beta1.StepTemplate{}
 		}
 		OverrideTemplateWithTemplate(ts.StepTemplate, override.StepTemplate, true)
 		if override.StepTemplate.Image != "" {
@@ -20,7 +21,7 @@ func OverrideTaskSpec(ts *pipelinev1.TaskSpec, override *pipelinev1.TaskSpec) {
 }
 
 // OverrideStep overrides the step with the given overrides
-func OverrideStep(step *pipelinev1.Step, override *pipelinev1.Step) {
+func OverrideStep(step *pipelinev1beta1.Step, override *pipelinev1beta1.Step) {
 	if len(override.Command) > 0 {
 		step.Script = override.Script
 		step.Command = override.Command
@@ -38,7 +39,22 @@ func OverrideStep(step *pipelinev1.Step, override *pipelinev1.Step) {
 }
 
 // OverrideTemplateWithStep overrides the container properties
-func OverrideTemplateWithTemplate(c *pipelinev1.StepTemplate, override *pipelinev1.StepTemplate, modify bool) {
+func OverrideTemplateWithTemplate(c *pipelinev1beta1.StepTemplate, override *pipelinev1beta1.StepTemplate, modify bool) {
+	c.Env = OverrideEnv(c.Env, override.Env, modify)
+	c.EnvFrom = OverrideEnvFrom(c.EnvFrom, override.EnvFrom, modify)
+	if string(override.ImagePullPolicy) != "" && (modify || string(c.ImagePullPolicy) == "") {
+		c.ImagePullPolicy = override.ImagePullPolicy
+	}
+	c.Resources = OverrideResources(c.Resources, override.Resources, modify)
+	if c.SecurityContext == nil {
+		c.SecurityContext = override.SecurityContext
+	}
+	if override.WorkingDir != "" && (modify || c.WorkingDir == "") {
+		c.WorkingDir = override.WorkingDir
+	}
+	c.VolumeMounts = OverrideVolumeMounts(c.VolumeMounts, override.VolumeMounts, modify)
+}
+func OverrideTemplateWithTemplateV1(c *pipelinev1.StepTemplate, override *pipelinev1.StepTemplate, modify bool) {
 	c.Env = OverrideEnv(c.Env, override.Env, modify)
 	c.EnvFrom = OverrideEnvFrom(c.EnvFrom, override.EnvFrom, modify)
 	if string(override.ImagePullPolicy) != "" && (modify || string(c.ImagePullPolicy) == "") {
@@ -55,7 +71,22 @@ func OverrideTemplateWithTemplate(c *pipelinev1.StepTemplate, override *pipeline
 }
 
 // OverrideTemplateWithStep overrides the container properties
-func OverrideStepWithStep(c *pipelinev1.Step, override *pipelinev1.Step, modify bool) {
+func OverrideStepWithStep(c *pipelinev1beta1.Step, override *pipelinev1beta1.Step, modify bool) {
+	c.Env = OverrideEnv(c.Env, override.Env, modify)
+	c.EnvFrom = OverrideEnvFrom(c.EnvFrom, override.EnvFrom, modify)
+	if string(override.ImagePullPolicy) != "" && (modify || string(c.ImagePullPolicy) == "") {
+		c.ImagePullPolicy = override.ImagePullPolicy
+	}
+	c.Resources = OverrideResources(c.Resources, override.Resources, modify)
+	if c.SecurityContext == nil {
+		c.SecurityContext = override.SecurityContext
+	}
+	if override.WorkingDir != "" && (modify || c.WorkingDir == "") {
+		c.WorkingDir = override.WorkingDir
+	}
+	c.VolumeMounts = OverrideVolumeMounts(c.VolumeMounts, override.VolumeMounts, modify)
+}
+func OverrideStepWithStepV1(c *pipelinev1.Step, override *pipelinev1.Step, modify bool) {
 	c.Env = OverrideEnv(c.Env, override.Env, modify)
 	c.EnvFrom = OverrideEnvFrom(c.EnvFrom, override.EnvFrom, modify)
 	if string(override.ImagePullPolicy) != "" && (modify || string(c.ImagePullPolicy) == "") {

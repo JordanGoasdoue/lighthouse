@@ -3,7 +3,8 @@ package inrepo
 import (
 	"sync"
 
-	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 )
 
 const DELIMIER = "#"
@@ -11,16 +12,18 @@ const DELIMIER = "#"
 // ResolverCache a cache of data and pipelines to minimise
 // the git cloning with in repo configurations
 type ResolverCache struct {
-	lock          sync.RWMutex
-	pipelineCache map[string]*pipelinev1.PipelineRun
-	dataCache     map[string][]byte
+	lock            sync.RWMutex
+	pipelineCache   map[string]*pipelinev1beta1.PipelineRun
+	pipelineCacheV1 map[string]*pipelinev1.PipelineRun
+	dataCache       map[string][]byte
 }
 
 // NewResolverCache creates a new resolver cache
 func NewResolverCache() *ResolverCache {
 	return &ResolverCache{
-		pipelineCache: map[string]*pipelinev1.PipelineRun{},
-		dataCache:     map[string][]byte{},
+		pipelineCache:   map[string]*pipelinev1beta1.PipelineRun{},
+		pipelineCacheV1: map[string]*pipelinev1.PipelineRun{},
+		dataCache:       map[string][]byte{},
 	}
 }
 
@@ -47,23 +50,41 @@ func (c *ResolverCache) SetData(sourceURI, ref string, value []byte) {
 }
 
 // GetPipelineRun gets the PipelineRun from the cache if available or returns nil
-func (c *ResolverCache) GetPipelineRun(sourceURI, ref string) *pipelinev1.PipelineRun {
+func (c *ResolverCache) GetPipelineRun(sourceURI, ref string) *pipelinev1beta1.PipelineRun {
 	if c == nil || sourceURI == "" {
 		return nil
 	}
-	var answer *pipelinev1.PipelineRun
+	var answer *pipelinev1beta1.PipelineRun
 	c.lock.Lock()
 	answer = c.pipelineCache[sourceURI+DELIMIER+ref]
 	c.lock.Unlock()
 	return answer
 }
+func (c *ResolverCache) GetPipelineRunV1(sourceURI, ref string) *pipelinev1.PipelineRun {
+	if c == nil || sourceURI == "" {
+		return nil
+	}
+	var answer *pipelinev1.PipelineRun
+	c.lock.Lock()
+	answer = c.pipelineCacheV1[sourceURI+DELIMIER+ref]
+	c.lock.Unlock()
+	return answer
+}
 
 // SetPipelineRun updates the cache
-func (c *ResolverCache) SetPipelineRun(sourceURI string, ref string, value *pipelinev1.PipelineRun) {
+func (c *ResolverCache) SetPipelineRun(sourceURI string, ref string, value *pipelinev1beta1.PipelineRun) {
 	if c == nil || value == nil {
 		return
 	}
 	c.lock.Lock()
 	c.pipelineCache[sourceURI+DELIMIER+ref] = value
+	c.lock.Unlock()
+}
+func (c *ResolverCache) SetPipelineRunV1(sourceURI string, ref string, value *pipelinev1.PipelineRun) {
+	if c == nil || value == nil {
+		return
+	}
+	c.lock.Lock()
+	c.pipelineCacheV1[sourceURI+DELIMIER+ref] = value
 	c.lock.Unlock()
 }

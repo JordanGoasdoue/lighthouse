@@ -115,7 +115,7 @@ func (r *LighthouseJobReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if len(pipelineRunList.Items) == 0 {
 		if job.Status.State == lighthousev1alpha1.TriggeredState {
 			// construct a pipeline run
-			pipelineRun, err := makePipelineRun(ctx, job, r.namespace, r.logger, r.idGenerator, r.apiReader)
+			pipelineRun, err := makePipelineRunV1(ctx, job, r.namespace, r.logger, r.idGenerator, r.apiReader)
 			if err != nil {
 				r.logger.Errorf("Failed to make pipeline run: %s", err)
 				return ctrl.Result{}, err

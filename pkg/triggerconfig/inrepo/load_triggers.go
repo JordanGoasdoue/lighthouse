@@ -318,11 +318,33 @@ func loadJobBaseFromSourcePath(data []byte, fileBrowsers *filebrowser.FileBrowse
 		Message:      message,
 	}
 
-	prs, err := LoadTektonResourceAsPipelineRun(usesResolver, data)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unmarshal YAML file %s in repo %s/%s with sha %s", path, ownerName, repoName, sha)
+	var apiVersionStruct struct {
+		APIVersion string `yaml:"apiVersion"`
+		Kind       string `yaml:"kind"`
 	}
-	j.PipelineRunSpec = &prs.Spec
+
+	if err := yaml.Unmarshal(data, &apiVersionStruct); err != nil {
+		return errors.Wrap(err, "failed to parse Tekton resource")
+	}
+
+	isV1 := apiVersionStruct.APIVersion == TektonAPIVersionV1
+
+	if isV1 {
+		j.PipelineRunSpec = nil
+		prs, err := LoadTektonResourceAsPipelineRunV1(usesResolver, data)
+		if err != nil {
+			return errors.Wrapf(err, "failed to unmarshal YAML file %s in repo %s/%s with sha %s", path, ownerName, repoName, sha)
+		}
+		j.PipelineRunSpecV1 = &prs.Spec
+	} else {
+		j.PipelineRunSpecV1 = nil
+		prs, err := LoadTektonResourceAsPipelineRun(usesResolver, data)
+		if err != nil {
+			return errors.Wrapf(err, "failed to unmarshal YAML file %s in repo %s/%s with sha %s", path, ownerName, repoName, sha)
+		}
+		j.PipelineRunSpec = &prs.Spec
+	}
+
 	return nil
 }
 
