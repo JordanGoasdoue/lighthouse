@@ -11,6 +11,12 @@ import (
 // ConfigMerge merges the repository configuration into the global configuration
 func ConfigMerge(cfg *config.Config, pluginsCfg *plugins.Configuration, repoConfig *triggerconfig.Config, repoOwner string, repoName string) error {
 	repoKey := repoOwner + "/" + repoName
+
+	repoConfig.Spec.Presubmits = applyPresubmitDefaults(repoConfig.Spec.DefaultPresubmits, repoConfig.Spec.Presubmits)
+	repoConfig.Spec.Postsubmits = applyPostsubmitDefaults(repoConfig.Spec.DefaultPostsubmits, repoConfig.Spec.Postsubmits)
+	repoConfig.Spec.Periodics = applyPeriodicDefaults(repoConfig.Spec.DefaultPeriodics, repoConfig.Spec.Periodics)
+	repoConfig.Spec.Deployments = applyDeploymentDefaults(repoConfig.Spec.DefaultDeployments, repoConfig.Spec.Deployments)
+
 	if len(repoConfig.Spec.Presubmits) > 0 {
 		// lets make a new map to avoid concurrent modifications
 		m := map[string][]job.Presubmit{}
@@ -135,4 +141,328 @@ func migrateOldConfig(cfg *job.Config) {
 			}
 		}
 	}
+}
+
+// MergePresubmit merges a default presubmit with an actual presubmit
+func MergePresubmit(defaultJob, actualJob job.Presubmit) job.Presubmit {
+	merged := defaultJob
+
+	// Base fields
+	if actualJob.Name != "" {
+		merged.Name = actualJob.Name
+	}
+	if actualJob.Agent != "" {
+		merged.Agent = actualJob.Agent
+	}
+	if actualJob.Cluster != "" {
+		merged.Cluster = actualJob.Cluster
+	}
+	if actualJob.Namespace != nil && *actualJob.Namespace != "" {
+		merged.Namespace = actualJob.Namespace
+	}
+	if actualJob.Context != "" {
+		merged.Context = actualJob.Context
+	}
+	if actualJob.MaxConcurrency != 0 {
+		merged.MaxConcurrency = actualJob.MaxConcurrency
+	}
+	if len(actualJob.Labels) > 0 {
+		merged.Labels = actualJob.Labels
+	}
+	if len(actualJob.Annotations) > 0 {
+		merged.Annotations = actualJob.Annotations
+	}
+
+	// Brancher fields
+	if len(actualJob.Branches) > 0 {
+		merged.Branches = actualJob.Branches
+	}
+	if len(actualJob.SkipBranches) > 0 {
+		merged.SkipBranches = actualJob.SkipBranches
+	}
+
+	// RegexpChangeMatcher fields
+	if actualJob.RunIfChanged != "" {
+		merged.RunIfChanged = actualJob.RunIfChanged
+	}
+	if actualJob.IgnoreChanges != "" {
+		merged.IgnoreChanges = actualJob.IgnoreChanges
+	}
+
+	// Reporter fields
+	if actualJob.Context != "" {
+		merged.Context = actualJob.Context
+	}
+	if actualJob.SkipReport {
+		merged.SkipReport = actualJob.SkipReport
+	}
+
+	// Presubmit-specific fields
+	if actualJob.AlwaysRun {
+		merged.AlwaysRun = actualJob.AlwaysRun
+	}
+	if actualJob.RequireRun {
+		merged.RequireRun = actualJob.RequireRun
+	}
+	if actualJob.Optional {
+		merged.Optional = actualJob.Optional
+	}
+	if actualJob.Trigger != "" {
+		merged.Trigger = actualJob.Trigger
+	}
+	if actualJob.RerunCommand != "" {
+		merged.RerunCommand = actualJob.RerunCommand
+	}
+	if actualJob.JenkinsSpec != nil {
+		merged.JenkinsSpec = actualJob.JenkinsSpec
+	}
+
+	return merged
+}
+
+// MergePostsubmit merges a default postsubmit with an actual postsubmit
+func MergePostsubmit(defaultJob, actualJob job.Postsubmit) job.Postsubmit {
+	merged := defaultJob
+
+	// Base fields
+	if actualJob.Name != "" {
+		merged.Name = actualJob.Name
+	}
+	if actualJob.Agent != "" {
+		merged.Agent = actualJob.Agent
+	}
+	if actualJob.Cluster != "" {
+		merged.Cluster = actualJob.Cluster
+	}
+	if actualJob.Namespace != nil && *actualJob.Namespace != "" {
+		merged.Namespace = actualJob.Namespace
+	}
+	if actualJob.Context != "" {
+		merged.Context = actualJob.Context
+	}
+	if actualJob.MaxConcurrency != 0 {
+		merged.MaxConcurrency = actualJob.MaxConcurrency
+	}
+	if len(actualJob.Labels) > 0 {
+		merged.Labels = actualJob.Labels
+	}
+	if len(actualJob.Annotations) > 0 {
+		merged.Annotations = actualJob.Annotations
+	}
+
+	// RegexpChangeMatcher fields
+	if actualJob.RunIfChanged != "" {
+		merged.RunIfChanged = actualJob.RunIfChanged
+	}
+	if actualJob.IgnoreChanges != "" {
+		merged.IgnoreChanges = actualJob.IgnoreChanges
+	}
+
+	// Brancher fields
+	if len(actualJob.Branches) > 0 {
+		merged.Branches = actualJob.Branches
+	}
+	if len(actualJob.SkipBranches) > 0 {
+		merged.SkipBranches = actualJob.SkipBranches
+	}
+
+	// Reporter fields
+	if actualJob.SkipReport {
+		merged.SkipReport = actualJob.SkipReport
+	}
+
+	// Postsubmit-specific fields
+	if actualJob.JenkinsSpec != nil {
+		merged.JenkinsSpec = actualJob.JenkinsSpec
+	}
+
+	return merged
+}
+
+// MergePeriodic merges a default periodic with an actual periodic
+func MergePeriodic(defaultJob, actualJob job.Periodic) job.Periodic {
+	merged := defaultJob
+
+	// Base fields
+	if actualJob.Name != "" {
+		merged.Name = actualJob.Name
+	}
+	if actualJob.Agent != "" {
+		merged.Agent = actualJob.Agent
+	}
+	if actualJob.Cluster != "" {
+		merged.Cluster = actualJob.Cluster
+	}
+	if actualJob.Namespace != nil && *actualJob.Namespace != "" {
+		merged.Namespace = actualJob.Namespace
+	}
+	if actualJob.Context != "" {
+		merged.Context = actualJob.Context
+	}
+	if actualJob.MaxConcurrency != 0 {
+		merged.MaxConcurrency = actualJob.MaxConcurrency
+	}
+	if len(actualJob.Labels) > 0 {
+		merged.Labels = actualJob.Labels
+	}
+	if len(actualJob.Annotations) > 0 {
+		merged.Annotations = actualJob.Annotations
+	}
+
+	// Reporter fields
+	if actualJob.SkipReport {
+		merged.SkipReport = actualJob.SkipReport
+	}
+
+	// Periodic-specific fields
+	if actualJob.Cron != "" {
+		merged.Cron = actualJob.Cron
+	}
+	if actualJob.Branch != "" {
+		merged.Branch = actualJob.Branch
+	}
+
+	return merged
+}
+
+// MergeDeployment merges a default deployment with an actual deployment
+func MergeDeployment(defaultJob, actualJob job.Deployment) job.Deployment {
+	merged := defaultJob
+
+	// Base fields
+	if actualJob.Name != "" {
+		merged.Name = actualJob.Name
+	}
+	if actualJob.Agent != "" {
+		merged.Agent = actualJob.Agent
+	}
+	if actualJob.Cluster != "" {
+		merged.Cluster = actualJob.Cluster
+	}
+	if actualJob.Namespace != nil && *actualJob.Namespace != "" {
+		merged.Namespace = actualJob.Namespace
+	}
+	if actualJob.Context != "" {
+		merged.Context = actualJob.Context
+	}
+	if actualJob.MaxConcurrency != 0 {
+		merged.MaxConcurrency = actualJob.MaxConcurrency
+	}
+	if len(actualJob.Labels) > 0 {
+		merged.Labels = actualJob.Labels
+	}
+	if len(actualJob.Annotations) > 0 {
+		merged.Annotations = actualJob.Annotations
+	}
+
+	// Reporter fields
+	if actualJob.SkipReport {
+		merged.SkipReport = actualJob.SkipReport
+	}
+
+	// Deployment-specific fields
+	if actualJob.State != "" {
+		merged.State = actualJob.State
+	}
+	if actualJob.Environment != "" {
+		merged.Environment = actualJob.Environment
+	}
+
+	return merged
+}
+
+// applyPresubmitDefaults merges default presubmits with actual presubmits
+func applyPresubmitDefaults(defaults []job.Presubmit, jobs []job.Presubmit) []job.Presubmit {
+	if len(defaults) == 0 {
+		return jobs
+	}
+
+	defaultsMap := make(map[string]job.Presubmit)
+	for _, d := range defaults {
+		defaultsMap[d.Name] = d
+	}
+
+	var result []job.Presubmit
+	for _, job := range jobs {
+		if defaultJob, exists := defaultsMap[job.Name]; exists {
+			merged := MergePresubmit(defaultJob, job)
+			result = append(result, merged)
+		} else {
+			result = append(result, job)
+		}
+	}
+
+	return result
+}
+
+// applyPostsubmitDefaults merges default postsubmits with actual postsubmits
+func applyPostsubmitDefaults(defaults []job.Postsubmit, jobs []job.Postsubmit) []job.Postsubmit {
+	if len(defaults) == 0 {
+		return jobs
+	}
+
+	defaultsMap := make(map[string]job.Postsubmit)
+	for _, d := range defaults {
+		defaultsMap[d.Name] = d
+	}
+
+	var result []job.Postsubmit
+	for _, job := range jobs {
+		if defaultJob, exists := defaultsMap[job.Name]; exists {
+			merged := MergePostsubmit(defaultJob, job)
+			result = append(result, merged)
+		} else {
+			result = append(result, job)
+		}
+	}
+
+	return result
+}
+
+// applyPeriodicDefaults merges default periodics with actual periodics
+func applyPeriodicDefaults(defaults []job.Periodic, jobs []job.Periodic) []job.Periodic {
+	if len(defaults) == 0 {
+		return jobs
+	}
+
+	defaultsMap := make(map[string]job.Periodic)
+	for _, d := range defaults {
+		defaultsMap[d.Name] = d
+	}
+
+	var result []job.Periodic
+	for _, job := range jobs {
+		if defaultJob, exists := defaultsMap[job.Name]; exists {
+			merged := MergePeriodic(defaultJob, job)
+			result = append(result, merged)
+		} else {
+			result = append(result, job)
+		}
+	}
+
+	return result
+}
+
+// applyDeploymentDefaults merges default deployments with actual deployments
+func applyDeploymentDefaults(defaults []job.Deployment, jobs []job.Deployment) []job.Deployment {
+	if len(defaults) == 0 {
+		return jobs
+	}
+
+	defaultsMap := make(map[string]job.Deployment)
+	for _, d := range defaults {
+		defaultsMap[d.Name] = d
+	}
+
+	var result []job.Deployment
+	for _, job := range jobs {
+		if defaultJob, exists := defaultsMap[job.Name]; exists {
+			merged := MergeDeployment(defaultJob, job)
+			result = append(result, merged)
+		} else {
+			result = append(result, job)
+		}
+	}
+
+	return result
 }

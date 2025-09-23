@@ -19,14 +19,18 @@ type Config struct {
 // ConfigSpec specifies the optional presubmit/postsubmit/trigger configurations
 type ConfigSpec struct {
 	// Presubmit zero or more presubmits
-	Presubmits []job.Presubmit `json:"presubmits,omitempty"`
+	DefaultPresubmits []job.Presubmit `json:"defaultPresubmits,omitempty"`
+	Presubmits        []job.Presubmit `json:"presubmits,omitempty"`
 
 	// Postsubmit zero or more postsubmits
-	Postsubmits []job.Postsubmit `json:"postsubmits,omitempty"`
+	DefaultPostsubmits []job.Postsubmit `json:"defaultPostsubmits,omitempty"`
+	Postsubmits        []job.Postsubmit `json:"postsubmits,omitempty"`
 
-	Periodics []job.Periodic `json:"periodics,omitempty"`
+	DefaultPeriodics []job.Periodic `json:"defaultPeriodics,omitempty"`
+	Periodics        []job.Periodic `json:"periodics,omitempty"`
 
-	Deployments []job.Deployment `json:"deployments,omitempty"`
+	DefaultDeployments []job.Deployment `json:"defaultDeployments,omitempty"`
+	Deployments        []job.Deployment `json:"deployments,omitempty"`
 }
 
 // ConfigList contains a list of Config
